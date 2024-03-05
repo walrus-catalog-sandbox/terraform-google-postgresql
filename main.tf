@@ -35,6 +35,33 @@ locals {
   }, var.engine_version, "POSTGRES_15")
 }
 
+# create network.
+resource "google_compute_network" "default" {
+  count = var.infrastructure.vpc_id == null ? 1 : 0
+
+  name = "default-vpc"
+}
+
+resource "google_compute_global_address" "default" {
+  count = var.infrastructure.vpc_id == null ? 1 : 0
+
+  name          = "default"
+  purpose       = "VPC_PEERING"
+  address_type  = "INTERNAL"
+  prefix_length = 16
+  network       = google_compute_network.default[0].id
+}
+
+# create private vpc connection.
+resource "google_service_networking_connection" "default" {
+  count = var.infrastructure.vpc_id == null ? 1 : 0
+
+  network                 = google_compute_network.default[0].id
+  service                 = "servicenetworking.googleapis.com"
+  reserved_peering_ranges = [google_compute_global_address.default[0].name]
+  deletion_policy         = "ABANDON"
+}
+
 #
 # Random
 #
@@ -86,7 +113,7 @@ resource "google_sql_database_instance" "primary" {
     #tfsec:ignore:google-sql-encrypt-in-transit-data
     ip_configuration {
       ipv4_enabled    = false
-      private_network = var.infrastructure.vpc_id
+      private_network = var.infrastructure.vpc_id == null ? google_compute_network.default[0].id : var.infrastructure.vpc_id
     }
 
     backup_configuration {
@@ -112,7 +139,7 @@ resource "google_sql_database_instance" "secondary" {
     #tfsec:ignore:google-sql-encrypt-in-transit-data
     ip_configuration {
       ipv4_enabled    = false
-      private_network = var.infrastructure.vpc_id
+      private_network = var.infrastructure.vpc_id == null ? google_compute_network.default[0].id : var.infrastructure.vpc_id
     }
   }
 

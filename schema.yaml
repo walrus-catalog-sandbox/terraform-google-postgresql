@@ -5,27 +5,18 @@ components:
   schemas:
     variables:
       type: object
-      required:
-      - infrastructure
       properties:
         infrastructure:
           title: Infrastructure
           type: object
           description: |
             Specify the infrastructure information for deploying.
-
-            Examples:
-            ```
-            infrastructure:
-              vpc_id: string                  # the ID of the VPC where the PostgreSQL service applies. It is a fully-qualified resource name, such as projects/{project_id}/global/networks/{network_id}.
-            ```
-          required:
-          - vpc_id
+          default: {}
           properties:
             vpc_id:
               description: |
                 The ID of the VPC where the PostgreSQL service applies. It is
-                a fully-qualified resource name, such as projects/{project_id}/global/networks/{network_id}.
+                a fully-qualified resource name, such as projects/{project_id}/global/networks/{network_id}. If not specified, a new VPC will be created.
               title: Vpc Id
               type: string
               x-walrus-ui:
