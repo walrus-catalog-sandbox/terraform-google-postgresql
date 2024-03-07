@@ -122,6 +122,8 @@ resource "google_sql_database_instance" "primary" {
   }
 
   deletion_protection = false
+
+  depends_on = [google_service_networking_connection.default]
 }
 
 resource "google_sql_database_instance" "secondary" {
@@ -144,6 +146,8 @@ resource "google_sql_database_instance" "secondary" {
   }
 
   deletion_protection = false
+
+  depends_on = [google_service_networking_connection.default]
 }
 
 # create database.
