@@ -39,13 +39,13 @@ locals {
 resource "google_compute_network" "default" {
   count = var.infrastructure.vpc_id == null ? 1 : 0
 
-  name = "default-vpc"
+  name = local.fullname
 }
 
 resource "google_compute_global_address" "default" {
   count = var.infrastructure.vpc_id == null ? 1 : 0
 
-  name          = "default"
+  name          = local.fullname
   purpose       = "VPC_PEERING"
   address_type  = "INTERNAL"
   prefix_length = 16
