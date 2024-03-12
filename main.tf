@@ -6,10 +6,8 @@ locals {
   resource_name    = coalesce(try(var.context["resource"]["name"], null), "example")
   resource_id      = coalesce(try(var.context["resource"]["id"], null), "example_id")
 
-  namespace = join("-", [local.project_name, local.environment_name])
-
   tags = {
-    "Name" = join("-", [local.namespace, local.resource_name])
+    "Name" = local.resource_name
 
     "walrus.seal.io-catalog-name"     = "terraform-google-postgresql"
     "walrus.seal.io-project-id"       = local.project_id
@@ -39,13 +37,13 @@ locals {
 resource "google_compute_network" "default" {
   count = var.infrastructure.vpc_id == null ? 1 : 0
 
-  name = local.fullname
+  name = local.name
 }
 
 resource "google_compute_global_address" "default" {
   count = var.infrastructure.vpc_id == null ? 1 : 0
 
-  name          = local.fullname
+  name          = local.name
   purpose       = "VPC_PEERING"
   address_type  = "INTERNAL"
   prefix_length = 16
@@ -93,22 +91,32 @@ resource "random_string" "name_suffix" {
 
 locals {
   name     = join("-", [local.resource_name, random_string.name_suffix.result])
-  fullname = join("-", [local.namespace, local.name])
   database = coalesce(var.database, "mydb")
   username = coalesce(var.username, "rdsuser")
   password = coalesce(var.password, random_password.password.result)
 
   replication_readonly_replicas = var.replication_readonly_replicas == 0 ? 1 : var.replication_readonly_replicas
+
+  labels = {
+    "walrus-seal-io-catalog-name"     = "terraform-google-postgresql"
+    "walrus-seal-io-project-id"       = local.project_id
+    "walrus-seal-io-environment-id"   = local.environment_id
+    "walrus-seal-io-resource-id"      = local.resource_id
+    "walrus-seal-io-project-name"     = local.project_name
+    "walrus-seal-io-environment-name" = local.environment_name
+    "walrus-seal-io-resource-name"    = local.resource_name
+  }
 }
 
 resource "google_sql_database_instance" "primary" {
-  name             = local.fullname
+  name             = local.name
   database_version = local.version
 
   settings {
-    tier      = var.resources.class
-    disk_type = var.storage.class
-    disk_size = try(var.storage.size / 1024, 10)
+    tier        = var.resources.class
+    disk_type   = var.storage.class
+    disk_size   = try(var.storage.size / 1024, 10)
+    user_labels = local.labels
 
     #tfsec:ignore:google-sql-encrypt-in-transit-data
     ip_configuration {
@@ -129,14 +137,15 @@ resource "google_sql_database_instance" "primary" {
 resource "google_sql_database_instance" "secondary" {
   count = var.architecture == "replication" ? local.replication_readonly_replicas : 0
 
-  name                 = "${local.fullname}-secondary-${count.index}"
+  name                 = "${local.name}-secondary-${count.index}"
   database_version     = local.version
   master_instance_name = google_sql_database_instance.primary.name
 
   settings {
-    tier      = var.resources.class
-    disk_type = var.storage.class
-    disk_size = try(var.storage.size / 1024, 10)
+    tier        = var.resources.class
+    disk_type   = var.storage.class
+    disk_size   = try(var.storage.size / 1024, 10)
+    user_labels = local.labels
 
     #tfsec:ignore:google-sql-encrypt-in-transit-data
     ip_configuration {
