@@ -6,6 +6,8 @@ locals {
   resource_name    = coalesce(try(var.context["resource"]["name"], null), "example")
   resource_id      = coalesce(try(var.context["resource"]["id"], null), "example_id")
 
+  namespace = join("-", [local.project_name, local.environment_name])
+
   tags = {
     "Name" = local.resource_name
 
@@ -37,13 +39,13 @@ locals {
 resource "google_compute_network" "default" {
   count = var.infrastructure.vpc_id == null ? 1 : 0
 
-  name = local.name
+  name = local.fullname
 }
 
 resource "google_compute_global_address" "default" {
   count = var.infrastructure.vpc_id == null ? 1 : 0
 
-  name          = local.name
+  name          = local.fullname
   purpose       = "VPC_PEERING"
   address_type  = "INTERNAL"
   prefix_length = 16
@@ -91,6 +93,7 @@ resource "random_string" "name_suffix" {
 
 locals {
   name     = join("-", [local.resource_name, random_string.name_suffix.result])
+  fullname = format("walrus-%s", md5(join("-", [local.namespace, local.name])))
   database = coalesce(var.database, "mydb")
   username = coalesce(var.username, "rdsuser")
   password = coalesce(var.password, random_password.password.result)
@@ -109,7 +112,7 @@ locals {
 }
 
 resource "google_sql_database_instance" "primary" {
-  name             = local.name
+  name             = local.fullname
   database_version = local.version
 
   settings {
@@ -137,7 +140,7 @@ resource "google_sql_database_instance" "primary" {
 resource "google_sql_database_instance" "secondary" {
   count = var.architecture == "replication" ? local.replication_readonly_replicas : 0
 
-  name                 = "${local.name}-secondary-${count.index}"
+  name                 = "${local.fullname}-secondary-${count.index}"
   database_version     = local.version
   master_instance_name = google_sql_database_instance.primary.name
 
